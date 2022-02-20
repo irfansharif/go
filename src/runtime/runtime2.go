@@ -484,6 +484,8 @@ type g struct {
 	labels         unsafe.Pointer // profiler labels
 	timer          *timer         // cached timer for time.Sleep
 	selectDone     uint32         // are we participating in a select and did someone win the race?
+	lastsched    int64 // timestamp when the G last started running
+	runningnanos int64 // total time spent in the running state
 
 	// Per-G GC state
 

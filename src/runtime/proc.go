@@ -980,16 +980,26 @@ func casgstatus(gp *g, oldval, newval uint32) {
 		}
 	}
 
-	// Handle tracking for scheduling latencies.
+	// Handle tracking for scheduling and running latencies.
+	now := nanotime()
+	if newval == _Grunning {
+		// We're transitioning into the running state, record the timestamp for
+		// subsequent use.
+		gp.lastsched = now
+	}
 	if oldval == _Grunning {
+		// We're transitioning out of running, record how long we were in the
+		// state.
+		gp.runningnanos += now - gp.lastsched
+
 		// Track every 8th time a goroutine transitions out of running.
 		if gp.trackingSeq%gTrackingPeriod == 0 {
 			gp.tracking = true
 		}
 		gp.trackingSeq++
 	}
+
 	if gp.tracking {
-		now := nanotime()
 		if oldval == _Grunnable {
 			// We transitioned out of runnable, so measure how much
 			// time we spent in this state and add it to
@@ -3420,6 +3430,12 @@ func dropg() {
 	setGNoWB(&_g_.m.curg, nil)
 }
 
+// grunningnanos returns the running time observed by the current g.
+func grunningnanos() int64 {
+	gp := getg()
+	return gp.runningnanos + nanotime() - gp.lastsched
+}
+
 // checkTimers runs any timers for the P that are ready.
 // If now is not 0 it is the current time.
 // It returns the passed time or the current time if now was passed as 0.
@@ -3650,6 +3666,8 @@ func goexit0(gp *g) {
 	gp.param = nil
 	gp.labels = nil
 	gp.timer = nil
+	gp.lastsched = 0
+	gp.runningnanos = 0
 
 	if gcBlackenEnabled != 0 && gp.gcAssistBytes > 0 {
 		// Flush assist credit to the global pool. This gives

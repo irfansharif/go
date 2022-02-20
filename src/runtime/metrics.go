@@ -289,6 +289,12 @@ func initMetrics() {
 				}
 			},
 		},
+		"/goroutine/running:nanoseconds": {
+			compute: func(_ *statAggregate, out *metricValue) {
+				out.kind = metricKindUint64
+				out.scalar = uint64(grunningnanos())
+			},
+		},
 	}
 	metricsInit = true
 }

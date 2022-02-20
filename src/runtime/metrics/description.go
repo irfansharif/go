@@ -224,6 +224,11 @@ var allDesc = []Description{
 		Description: "Distribution of the time goroutines have spent in the scheduler in a runnable state before actually running.",
 		Kind:        KindFloat64Histogram,
 	},
+	{
+		Name:        "/goroutine/running:nanoseconds",
+		Description: "Time spent by the current goroutine in the running state.",
+		Kind:        KindUint64,
+	},
 }
 
 // All returns a slice of containing metric descriptions for all supported metrics.

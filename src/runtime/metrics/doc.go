@@ -170,5 +170,8 @@ Below is the full list of supported metrics, ordered lexicographically.
 	/sched/latencies:seconds
 		Distribution of the time goroutines have spent in the scheduler
 		in a runnable state before actually running.
+
+	/goroutine/running:nanoseconds
+		Time spent by the current goroutine in the running state.
 */
 package metrics
