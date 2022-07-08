@@ -980,20 +980,31 @@ func casgstatus(gp *g, oldval, newval uint32) {
 		}
 	}
 
-	// Handle tracking for scheduling latencies.
+	// Handle tracking for scheduling and running latencies.
+	now := nanotime()
+	if newval == _Grunning {
+		// We're transitioning into the running state, record the timestamp for
+		// subsequent use.
+		gp.lastsched = now
+	}
 	if oldval == _Grunning {
+		// We're transitioning out of running, record how long we were in the
+		// state.
+		gp.runningnanos += now - gp.lastsched
+
 		// Track every 8th time a goroutine transitions out of running.
 		if gp.trackingSeq%gTrackingPeriod == 0 {
 			gp.tracking = true
 		}
 		gp.trackingSeq++
 	}
-	if gp.tracking {
+	if gp.tracking || true {
 		now := nanotime()
 		if oldval == _Grunnable {
 			// We transitioned out of runnable, so measure how much
 			// time we spent in this state and add it to
 			// runnableTime.
+			gp.runnablenanos += now - gp.runnableStamp
 			gp.runnableTime += now - gp.runnableStamp
 			gp.runnableStamp = 0
 		}
@@ -3420,6 +3431,20 @@ func dropg() {
 	setGNoWB(&_g_.m.curg, nil)
 }
 
+// grunningnanos returns the wall time spent by current g in the running state.
+// A goroutine may be running on an OS thread that's descheduled by the OS
+// scheduler, this time still counts towards the metric.
+func grunningnanos() int64 {
+	gp := getg()
+	return gp.runningnanos + nanotime() - gp.lastsched
+}
+
+// grunnablenanos returns the wall time spent by current g in the runnable
+// state.
+func grunnablenanos() int64 {
+	return getg().runnablenanos
+}
+
 // checkTimers runs any timers for the P that are ready.
 // If now is not 0 it is the current time.
 // It returns the passed time or the current time if now was passed as 0.
@@ -3650,6 +3675,9 @@ func goexit0(gp *g) {
 	gp.param = nil
 	gp.labels = nil
 	gp.timer = nil
+	gp.lastsched = 0
+	gp.runningnanos = 0
+	gp.runnablenanos = 0
 
 	if gcBlackenEnabled != 0 && gp.gcAssistBytes > 0 {
 		// Flush assist credit to the global pool. This gives
